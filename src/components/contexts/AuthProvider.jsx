@@ -1,0 +1,27 @@
+import React, { createContext, useEffect, useState } from "react";
+
+export const LoginContext = createContext();
+
+function AuthProvider({ children }) {
+  const [auth, setAuth] = useState(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem("isLogin");
+    if (user) {
+      setAuth(JSON.parse(user));
+    }
+  }, []);
+
+  const handelLogin = (user) => {
+    localStorage.setItem("isLogin", JSON.stringify(user));
+    setAuth(user);
+  };
+
+  return (
+    <LoginContext.Provider value={{ auth, handelLogin }}>
+      {children}
+    </LoginContext.Provider>
+  );
+}
+
+export default AuthProvider;
