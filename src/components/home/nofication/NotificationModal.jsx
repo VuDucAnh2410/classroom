@@ -51,6 +51,7 @@ function NotificationModal({ open, handleClose, classId }) {
         createdAt: serverTimestamp(),
         attachmentUrl: attachmentUrl, // có thể là null
         attachmentName: attachmentName, // có thể là null
+        type: "ANNOUNCEMENT",
       };
 
       // 3. Thêm thông báo vào Firestore

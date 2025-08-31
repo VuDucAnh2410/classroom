@@ -1,5 +1,3 @@
-// src/components/home/UpcomingTasks.jsx
-
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import {
   Box,
@@ -77,7 +75,7 @@ function UpcomingTasks({ idClass }) {
       <Typography
         variant="h6"
         gutterBottom
-        sx={{ fontWeight: "bold", color: "#3c4043" }}
+        sx={{ fontWeight: "500", color: "#3c4043" }}
       >
         Sắp đến hạn
       </Typography>
@@ -162,7 +160,6 @@ function UpcomingTasks({ idClass }) {
         </Box>
       ) : (
         <Box sx={{ textAlign: "center", p: 3, color: "text.secondary" }}>
-          <MdDoneAll size={40} style={{ marginBottom: "8px" }} />
           <Typography>Tuyệt vời, không có bài tập nào sắp đến hạn!</Typography>
         </Box>
       )}

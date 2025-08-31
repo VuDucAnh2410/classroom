@@ -2,16 +2,26 @@ import React, { useContext, useState } from "react";
 import { Box, Typography, Button, Paper, IconButton } from "@mui/material";
 import { MdFolder, MdAdd } from "react-icons/md";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
+// Contexts (đi lên 3 cấp để tới src/contexts)
 import { LoginContext } from "../../contexts/AuthProvider";
 import { SubjectContext } from "../../contexts/SubjectProvider";
 import { FolderContext } from "../../contexts/FolderProvider";
 import { TasksContext } from "../../contexts/TasksProvider";
 import { NotificationContext } from "../../contexts/NotificationProvider";
+
+// Components
+// Đi lên 2 cấp để tới src/components/
 import BreadcrumbNavigation from "../BreadcrumbNavigation";
-import NotificationItem from "./notification/NotificationItem";
-import NotificationModal from "./notification/NotificationModal";
+// Đi lên 2 cấp rồi vào thư mục notification
+import NotificationItem from "../nofication/NotificationItem";
+import NotificationModal from "../nofication/NotificationModal";
+// Đi lên 2 cấp rồi vào thư mục task
+import AddTaskModal from "../task/AddTaskModal";
+
+// Đi lên 1 cấp để tới src/components/home/
 import UpcomingTasks from "../UpcomingTasks";
-// Contexts
+
+// Từ thư mục hiện tại (./)
 import { ContentItem } from "./ContentItem";
 import { TaskItem } from "./TaskItem";
 import CreateTopicModal from "./CreateTopicModal";

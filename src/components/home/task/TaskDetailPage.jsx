@@ -52,7 +52,7 @@ function TaskDetailPage() {
   const handleGradeTask = () => {
     if (task) {
       // Điều hướng đến trang sổ điểm và truyền ID của task hiện tại qua state
-      navigate(`/grades/student`, {
+      navigate(`/class/${task.class_id}/grades`, {
         state: { defaultTaskId: taskId },
       });
     }

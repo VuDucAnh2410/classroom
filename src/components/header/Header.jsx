@@ -1,5 +1,3 @@
-// src/components/layout/Header.jsx
-
 import React, { useState, useEffect, useRef, useContext, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -23,10 +21,8 @@ import { updateDocument } from "../services/firebaseService";
 function Header() {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const userDropdownRef = useRef(null);
-
   const [isNotiDropdownOpen, setIsNotiDropdownOpen] = useState(false);
   const notiDropdownRef = useRef(null);
-
   const navigate = useNavigate();
 
   const { handleLogout: contextLogout, auth } = useContext(LoginContext);
@@ -65,21 +61,25 @@ function Header() {
   }, [localNotifications]);
 
   const sortedNotifications = useMemo(() => {
-    if (!notificationsFromContext || notificationsFromContext.length === 0) {
+    if (!localNotifications || localNotifications.length === 0) {
       return [];
     }
 
-    // SỬA LẠI HÀM SORT Ở ĐÂY
-    return [...notificationsFromContext].sort((a, b) => {
-      // Nếu b không có ngày tạo, đẩy nó xuống cuối
-      if (!b.createdAt) return -1;
-      // Nếu a không có ngày tạo, đẩy nó xuống cuối
-      if (!a.createdAt) return 1;
+    // Tính toán ngày giới hạn (1 tháng trước)
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-      // Nếu cả hai đều có ngày tạo, so sánh bình thường
-      return b.createdAt.toDate() - a.createdAt.toDate();
-    });
-  }, [notificationsFromContext]);
+    // Lọc và sắp xếp trong cùng một chuỗi
+    return localNotifications
+      .filter((noti) => {
+        // Chỉ giữ lại những thông báo có ngày tạo và mới hơn 1 tháng
+        return noti.createdAt && noti.createdAt.toDate() > oneMonthAgo;
+      })
+      .sort((a, b) => {
+        // Hàm sort an toàn (đã có từ trước)
+        return b.createdAt.toDate() - a.createdAt.toDate();
+      });
+  }, [localNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -149,7 +149,9 @@ function Header() {
               <div className="p-3 border-b">
                 <Typography variant="h6">Thông báo</Typography>
               </div>
-              <div className="max-h-80 overflow-y-auto">
+
+              {/* SỬA 1: Giới hạn chiều cao và cho phép cuộn */}
+              <div className="max-h-96 overflow-y-auto">
                 {sortedNotifications.length > 0 ? (
                   sortedNotifications.map((noti) => (
                     <div
@@ -175,14 +177,13 @@ function Header() {
                   ))
                 ) : (
                   <div className="p-4 text-center text-gray-500">
-                    Không có thông báo nào.
+                    Không có thông báo nào gần đây.
                   </div>
                 )}
               </div>
             </div>
           )}
         </div>
-
         <div className="relative" ref={userDropdownRef}>
           <div
             className="flex items-center gap-2 cursor-pointer"
