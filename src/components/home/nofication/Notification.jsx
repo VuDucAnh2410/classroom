@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,22 +16,56 @@ import { FaGoogleDrive, FaLink, FaYoutube } from "react-icons/fa";
 import { MdClose } from "react-icons/md";
 import { addDocument } from "../../services/firebaseService";
 import { serverTimestamp } from "firebase/firestore";
+import { uploadFileToCloudinary } from "../../../config/CloudinaryConfig";
 
 function Notification({ open, handleClose, classId }) {
   const [content, setContent] = useState(""); // State để lưu nội dung thông báo
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Hàm xử lý khi người dùng chọn file
+  const handleFileChange = (e) => {
+    if (e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
 
   const handlePost = async () => {
     if (!content.trim()) return;
 
-    const newNotification = {
-      content: content.trim(),
-      class_id: classId,
-      createdAt: serverTimestamp(),
-    };
+    setIsUploading(true);
+    let attachmentUrl = null;
+    let attachmentName = null;
 
-    await addDocument("notifications", newNotification);
-    setContent("");
-    handleClose();
+    try {
+      // 1. Nếu có file, tải lên Cloudinary
+      if (file) {
+        attachmentUrl = await uploadFileToCloudinary(file, "notifications"); // Lưu vào thư mục 'notifications' trên Cloudinary
+        attachmentName = file.name;
+      }
+
+      // 2. Tạo đối tượng thông báo mới với URL của file (nếu có)
+      const newNotification = {
+        content: content.trim(),
+        class_id: classId,
+        createdAt: serverTimestamp(),
+        attachmentUrl: attachmentUrl, // có thể là null
+        attachmentName: attachmentName, // có thể là null
+      };
+
+      // 3. Thêm thông báo vào Firestore
+      await addDocument("notifications", newNotification);
+
+      // 4. Reset state và đóng modal
+      setContent("");
+      setFile(null);
+      handleClose();
+    } catch (error) {
+      console.error("Lỗi khi đăng thông báo hoặc tải tệp lên:", error);
+      alert("Đã xảy ra lỗi, vui lòng thử lại.");
+    } finally {
+      setIsUploading(false); // Dừng trạng thái loading dù thành công hay thất bại
+    }
   };
   return (
     <Dialog open={open} fullWidth maxWidth="sm">
@@ -66,9 +101,10 @@ function Notification({ open, handleClose, classId }) {
           <Typography variant="body2" sx={{ mb: 1 }}>
             Tệp đính kèm:
           </Typography>
-          <Button component="label" sx={{ mr: 1 }}>
-            Tải tệp <input type="file" hidden />
+          <Button component="label" variant="outlined" sx={{ mr: 1 }}>
+            Tải tệp <input type="file" hidden onChange={handleFileChange} />
           </Button>
+          {file && <Typography variant="caption">{file.name}</Typography>}
           <IconButton title="Đính kèm YouTube">
             <FaYoutube color="red" />
           </IconButton>
@@ -86,8 +122,11 @@ function Notification({ open, handleClose, classId }) {
           variant="contained"
           onClick={handlePost}
           disabled={!content.trim()}
+          startIcon={
+            isUploading ? <CircularProgress size={20} color="inherit" /> : null
+          }
         >
-          Đăng
+          {isUploading ? "Đang đăng..." : "Đăng"}
         </Button>
       </DialogActions>
     </Dialog>

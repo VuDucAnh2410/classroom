@@ -2,6 +2,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,6 +21,7 @@ import { addDocument } from "../../services/firebaseService";
 import { serverTimestamp } from "firebase/firestore";
 import { EnrollmentsContext } from "../../contexts/EnrollmentsProvider";
 import { UserContext } from "../../contexts/userProvider";
+import { uploadFileToCloudinary } from "../../../config/CloudinaryConfig";
 
 function AddTaskModal({ open, handleClose, classId, folders = [] }) {
   const [title, setTitle] = useState("");
@@ -29,28 +31,65 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
   const [listUser, setListUser] = useState([]);
   const enrollments = useContext(EnrollmentsContext);
   const users = useContext(UserContext);
-   console.log(users);
-   
+
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  console.log(users);
+
+  const handleFileChange = (e) => {
+    if (e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
   const handleAddTask = async () => {
-    if (!title.trim() || !deadline) {
-      alert("Vui lòng nhập Tiêu đề và Hạn nộp.");
+    // SỬA: Sửa biến trong validation cho đúng
+    if (!title.trim() || !deadline.trim()) {
+      alert("Vui lòng nhập tiêu đề và hạn nộp.");
       return;
     }
-    const newTaskData = {
-      name: title.trim(),
-      description: content.trim(),
-      deadline: new Date(deadline),
-      class_id: classId,
-      folder_id: selectedTopic || null,
-      type: "deadline",
-      createdAt: serverTimestamp(),
-      listUser: listUser,
-    };
+
+    setIsUploading(true);
+    let attachmentUrl = null;
+    let attachmentName = null;
+
     try {
-      await addDocument("tasks", newTaskData);
+      // 1. Nếu có file, tải lên Cloudinary
+      if (file) {
+        attachmentUrl = await uploadFileToCloudinary(file, "tasks");
+        attachmentName = file.name;
+      }
+
+      // 2. Tạo đối tượng task mới
+      const newTask = {
+        name: title.trim(),
+        description: content.trim(), // Dùng state `content`
+        deadline: new Date(deadline),
+        folder_id: selectedTopic, // Dùng state `selectedTopic`
+        assigned_users: listUser, // THÊM: Lưu danh sách học sinh được giao
+        class_id: classId,
+        createdAt: serverTimestamp(),
+        attachmentUrl: attachmentUrl,
+        attachmentName: attachmentName,
+      };
+
+      // 3. Thêm task vào Firestore
+      await addDocument("tasks", newTask);
+
+      // 4. Reset state và đóng modal (SỬA: Dùng đúng tên hàm setState)
+      setTitle("");
+      setContent("");
+      setDeadline("");
+      setSelectedTopic("");
+      setListUser([]);
+      setFile(null);
       handleClose();
     } catch (error) {
-      console.error("Lỗi khi tạo bài tập:", error);
+      console.error("Lỗi khi tạo bài tập hoặc tải tệp lên:", error);
+      alert("Đã xảy ra lỗi, vui lòng thử lại.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -101,7 +140,9 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
           <Autocomplete
             multiple
             options={enrollments.filter((e) => e.class_id == classId)}
-            getOptionLabel={(option) => users.find(e => e.id == option.user_id)?.username} // user_id có thể là số, nên convert sang chuỗi
+            getOptionLabel={(option) =>
+              users.find((e) => e.id == option.user_id)?.username
+            } // user_id có thể là số, nên convert sang chuỗi
             disableCloseOnSelect
             onChange={(event, newValue) => {
               // Lấy danh sách user_id từ newValue
@@ -128,9 +169,10 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
           <Typography variant="body2" sx={{ mb: 1 }}>
             Tệp đính kèm:
           </Typography>
-          <Button component="label" sx={{ mr: 1 }}>
-            Tải tệp <input type="file" hidden />
+          <Button component="label" variant="outlined" sx={{ mr: 1 }}>
+            Tải tệp <input type="file" hidden onChange={handleFileChange} />
           </Button>
+          {file && <Typography variant="caption">{file.name}</Typography>}
           <IconButton title="Đính kèm YouTube">
             <FaYoutube color="red" />
           </IconButton>
@@ -143,9 +185,18 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Hủy</Button>
-        <Button variant="contained" onClick={handleAddTask}>
-          Giao bài
+        <Button onClick={handleClose} disabled={isUploading}>
+          Hủy
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleAddTask}
+          disabled={!title.trim() || !deadline.trim() || isUploading}
+          startIcon={
+            isUploading ? <CircularProgress size={20} color="inherit" /> : null
+          }
+        >
+          {isUploading ? "Đang giao..." : "Giao bài"}
         </Button>
       </DialogActions>
     </Dialog>

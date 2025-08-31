@@ -6,6 +6,9 @@ import FolderDetailPage from "../home/class/FolderDetailPage";
 import LessonsTab from "../home/Tab/LessonTab";
 import TabPeople from "../home/Tab/TabPeople";
 import TaskDetailPage from "../home/task/TaskDetailPage";
+import SettingsPage from "../home/setting/SettingsPage";
+import Gradebook from "../home/score/Gradebook";
+import GradingPage from "../home/score/GradingPage";
 
 function RouterAdmin() {
   const routers = [
@@ -17,15 +20,6 @@ function RouterAdmin() {
       // Route mặc định của trang lớp học
       path: "/class/:id",
       element: <ClassDetailPage />,
-    },
-    {
-      // Route cho tab Bài học
-      path: "/class/:id/lessons",
-      element: (
-        <ClassDetailPage>
-          <LessonsTab />
-        </ClassDetailPage>
-      ),
     },
     {
       // Route cho tab Mọi người
@@ -43,6 +37,15 @@ function RouterAdmin() {
     {
       path: "/taskdetail/:id",
       element: <TaskDetailPage />,
+    },
+    { path: "/settings", element: <SettingsPage /> },
+    {
+      path: "/class/:id/grades",
+      element: <Gradebook />,
+    },
+    {
+      path: "/class/:id/grades/:taskId/student/:studentId",
+      element: <GradingPage />,
     },
   ];
   return (

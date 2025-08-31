@@ -49,6 +49,15 @@ function TaskDetailPage() {
   const [taskDescription, setTaskDescription] = useState(""); // Dành cho GV sửa mô tả
   const [submissionComment, setSubmissionComment] = useState("");
 
+  const handleGradeTask = () => {
+    if (task) {
+      // Điều hướng đến trang sổ điểm và truyền ID của task hiện tại qua state
+      navigate(`/grades/student`, {
+        state: { defaultTaskId: taskId },
+      });
+    }
+  };
+
   useEffect(() => {
     setIsLoading(true); // Bắt đầu tải dữ liệu
     const currentTask = allTasks.find((e) => e.id === taskId);
@@ -68,7 +77,7 @@ function TaskDetailPage() {
             (sub) => sub.task_id === taskId
           );
           setSubmissionCount(submissionsForTask.length);
-          setAssignedCount(currentTask.listUser?.length || 0);
+          setAssignedCount(currentTask.assigned_users?.length || 0);
         } else {
           // TÌM BÀI NỘP CỦA HỌC SINH
           const submission = allSubmissions.find(
@@ -76,6 +85,7 @@ function TaskDetailPage() {
           );
           setUserSubmission(submission || null);
           console.log("Loaded userSubmission from allSubmissions:", submission);
+          console.log("All submissions:", allSubmissions); // Debug toàn bộ allSubmissions
         }
       }
     }
@@ -90,59 +100,101 @@ function TaskDetailPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    try {
+      if (isTeacher) {
+        let updatedData = { description: taskDescription };
+        if (file) {
+          const uploadResult = await uploadFileToCloudinary(
+            file,
+            "task_attachments"
+          );
+          updatedData.filePath = uploadResult;
+          updatedData.originalFileName = file.name;
+        }
+        await updateDocument("tasks", task.id, updatedData);
+        setTask((prevTask) => ({ ...prevTask, ...updatedData }));
+        setFile(null);
+        alert("Cập nhật thành công!");
+      } else {
+        // ---- LOGIC CỦA HỌC SINH ----
+        if (!file && !submissionComment.trim()) {
+          alert("Bạn phải đính kèm một tệp hoặc viết bình luận để nộp bài.");
+          return;
+        }
 
-    if (isTeacher) {
-      let updatedData = { description: taskDescription };
-      if (file) {
-        const uploadResult = await uploadFileToCloudinary(
-          file,
-          "task_attachments"
+        const newSubmissionData = {
+          description: submissionComment.trim(),
+          task_id: taskId,
+          user_id: auth.id,
+          score: null,
+          submitted_at: new Date(),
+          file_path: null,
+          originalFileName: null,
+        };
+
+        if (file) {
+          const uploadResult = await uploadFileToCloudinary(file, "baitap");
+          newSubmissionData.file_path = uploadResult;
+          newSubmissionData.originalFileName = file.name;
+        }
+
+        // Thêm document và lấy ID
+        const newId = await addDocument("submission", newSubmissionData);
+        console.log("addDocument returned ID:", newId); // Debug ID
+
+        // Optimistic update với ID tạm nếu không có ID từ addDocument
+        if (newId) {
+          setUserSubmission({ ...newSubmissionData, id: newId });
+        } else {
+          const tempId =
+            "temp_" +
+            Date.now() +
+            "_" +
+            Math.random().toString(36).substr(2, 9);
+          setUserSubmission({ ...newSubmissionData, id: tempId });
+          console.warn(
+            "Warning: addDocument did not return an ID. Using temporary ID:",
+            tempId
+          );
+          console.log(
+            "Please check Firebase 'submissions' collection for a document with task_id:",
+            taskId,
+            "and user_id:",
+            auth.id,
+            "and compare the ID."
+          );
+        }
+
+        alert(
+          "Nộp bài thành công! (Vui lòng kiểm tra ID trong Firebase nếu cần.)"
         );
-        updatedData.filePath = uploadResult;
-        updatedData.originalFileName = file.name;
+        setFile(null);
+        setSubmissionComment("");
       }
-      await updateDocument("tasks", task.id, updatedData);
-      setTask((prevTask) => ({ ...prevTask, ...updatedData }));
-      setFile(null);
-      alert("Cập nhật thành công!");
-    } else {
-      // ---- LOGIC CỦA HỌC SINH ----
-      if (!file && !submissionComment.trim()) {
-        alert("Bạn phải đính kèm một tệp hoặc viết bình luận để nộp bài.");
-        return;
+    } catch (error) {
+      console.error("Lỗi khi nộp bài:", error);
+      alert(
+        "Thao tác thất bại, vui lòng thử lại. Kiểm tra console để biết chi tiết."
+      );
+      if (!isTeacher) {
+        setUserSubmission(null);
       }
-
-      const newSubmissionData = {
-        description: submissionComment.trim(),
-        task_id: task.id,
-        user_id: auth.id,
-        score: null,
-        submitted_at: new Date(),
-        file_path: null,
-        originalFileName: null,
-      };
-
-      if (file) {
-        const uploadResult = await uploadFileToCloudinary(file, "baitap");
-        newSubmissionData.file_path = uploadResult;
-        newSubmissionData.originalFileName = file.name;
-      }
-
-      // Thêm document và lấy ID (giả sử addDocument trả về ID)
-      const newId = await addDocument("submission", newSubmissionData);
-
-      // Optimistic update: Cập nhật UI ngay lập tức
-      setUserSubmission({ ...newSubmissionData, id: newId });
-      console.log("Optimistic update with ID:", newId);
-
-      alert("Nộp bài thành công!");
-      setFile(null);
-      setSubmissionComment("");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleUnsubmit = async () => {
-    if (!userSubmission) return;
+    if (
+      !userSubmission ||
+      !userSubmission.id ||
+      userSubmission.id.startsWith("temp_")
+    ) {
+      alert(
+        "Không tìm thấy bài nộp hợp lệ để hủy. Vui lòng kiểm tra với quản trị viên."
+      );
+      return;
+    }
 
     if (window.confirm("Bạn có chắc chắn muốn hủy nộp bài không?")) {
       setIsSubmitting(true);
@@ -152,18 +204,13 @@ function TaskDetailPage() {
           userSubmission.id
         );
         await deleteDocument("submission", userSubmission.id);
-        setUserSubmission(null); // Cập nhật UI về trạng thái chưa nộp
+        setUserSubmission(null);
         setFile(null);
         setSubmissionComment("");
         alert("Hủy nộp bài thành công!");
       } catch (error) {
-        console.error("Lỗi khi hủy nộp bài:", error, {
-          submissionId: userSubmission.id,
-          userId: auth?.id,
-        });
-        alert(
-          "Hủy nộp bài thất bại. Kiểm tra console để biết chi tiết (có thể do quyền hoặc ID không hợp lệ)."
-        );
+        console.error("Lỗi khi hủy nộp bài:", error);
+        alert("Hủy nộp bài thất bại. Kiểm tra console để biết chi tiết.");
       } finally {
         setIsSubmitting(false);
       }
@@ -256,7 +303,7 @@ function TaskDetailPage() {
           <Typography sx={{ whiteSpace: "pre-wrap" }}>
             {task.description}
           </Typography>
-          {task.filePath && (
+          {task.attachmentUrl && (
             <Box>
               <Typography variant="subtitle2" fontWeight="bold">
                 Tệp đính kèm:
@@ -264,18 +311,20 @@ function TaskDetailPage() {
               <Button
                 variant="outlined"
                 startIcon={<FaLink />}
-                href={task.filePath}
+                href={task.attachmentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 sx={{ mt: 1 }}
               >
-                {task.originalFileName || getFileNameFromUrl(task.filePath)}
+                {task.attachmentName || getFileNameFromUrl(task.attachmentUrl)}
               </Button>
             </Box>
           )}
           {isTeacher && (
             <Box sx={{ mt: 3, borderTop: 1, borderColor: "divider", pt: 2 }}>
-              <Button variant="contained">Chấm điểm</Button>
+              <Button variant="contained" onClick={handleGradeTask}>
+                Chấm điểm
+              </Button>
             </Box>
           )}
         </Paper>
@@ -313,8 +362,8 @@ function TaskDetailPage() {
                       Tệp hiện tại:
                     </Typography>
                     <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
-                      {task.originalFileName ||
-                        getFileNameFromUrl(task.filePath)}
+                      {task.attachmentName ||
+                        getFileNameFromUrl(task.attachmentUrl)}
                     </Typography>
                   </Box>
                 )}
@@ -429,7 +478,7 @@ function TaskDetailPage() {
                       mt: 2,
                     }}
                   >
-                    {task.filePath && (
+                    {task.attachmentUrl && (
                       <Box
                         sx={{
                           mb: 2,
@@ -443,7 +492,7 @@ function TaskDetailPage() {
                         </Typography>
                         <Button
                           component="a"
-                          href={task.filePath}
+                          href={task.attachmentUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           size="small"
@@ -460,8 +509,8 @@ function TaskDetailPage() {
                             variant="body2"
                             sx={{ wordBreak: "break-all" }}
                           >
-                            {task.originalFileName ||
-                              getFileNameFromUrl(task.filePath)}
+                            {task.attachmentName ||
+                              getFileNameFromUrl(task.attachmentUrl)}
                           </Typography>
                         </Button>
                       </Box>

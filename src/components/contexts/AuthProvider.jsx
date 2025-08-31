@@ -17,8 +17,15 @@ function AuthProvider({ children }) {
     setAuth(user);
   };
 
+  const handleLogout = () => {
+    // Xóa thông tin khỏi localStorage
+    localStorage.removeItem("isLogin");
+    // Cập nhật state về null
+    setAuth(null);
+  };
+
   return (
-    <LoginContext.Provider value={{ auth, handelLogin }}>
+    <LoginContext.Provider value={{ auth, handelLogin, handleLogout }}>
       {children}
     </LoginContext.Provider>
   );

@@ -12,7 +12,7 @@ function UpcomingTasks({ idClass, isTeacher }) {
   useEffect(() => {
     const now = new Date();
     const allUpcomingTasksInClass = tasks.filter(
-      (e) => e.class_id === idClass && e.deadline.toDate() > now
+      (e) => e.class_id === idClass && e.deadline && e.deadline.toDate() > now
     );
     let finalTaskList;
     if (isTeacher) {
@@ -43,7 +43,7 @@ function UpcomingTasks({ idClass, isTeacher }) {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-evenly",
+                justifyContent: "space-between",
                 p: 1,
                 mb: 1,
                 mt: 1,

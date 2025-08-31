@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   IconButton,
   Menu,
   MenuItem,
@@ -7,7 +8,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { MdDelete, MdEdit, MdMoreVert } from "react-icons/md";
+import { MdDelete, MdEdit, MdLink, MdMoreVert } from "react-icons/md";
 
 function NotificationItem({ notification }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -27,6 +28,22 @@ function NotificationItem({ notification }) {
         <Typography sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
           {notification.content}
         </Typography>
+
+        {notification.attachmentUrl && (
+          <Box sx={{ mt: 2 }}>
+            <Button
+              component="a"
+              href={notification.attachmentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outlined"
+              size="small"
+              startIcon={<MdLink />}
+            >
+              {notification.attachmentName || "Xem tệp đính kèm"}
+            </Button>
+          </Box>
+        )}
       </Box>
       <IconButton size="small">
         <MdMoreVert />
