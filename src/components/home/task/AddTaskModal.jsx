@@ -22,8 +22,9 @@ import { serverTimestamp } from "firebase/firestore";
 import { EnrollmentsContext } from "../../contexts/EnrollmentsProvider";
 import { UserContext } from "../../contexts/userProvider";
 import { uploadFileToCloudinary } from "../../../config/CloudinaryConfig";
+import { LoginContext } from "../../contexts/AuthProvider";
 
-function AddTaskModal({ open, handleClose, classId, folders = [] }) {
+function AddTaskModal({ open, handleClose, classId, folders = [], className }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -31,6 +32,7 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
   const [listUser, setListUser] = useState([]);
   const enrollments = useContext(EnrollmentsContext);
   const users = useContext(UserContext);
+  const { auth } = useContext(LoginContext);
 
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -76,6 +78,21 @@ function AddTaskModal({ open, handleClose, classId, folders = [] }) {
 
       // 3. Thêm task vào Firestore
       await addDocument("tasks", newTask);
+
+      const notificationContent = `Giáo viên ${
+        auth.username
+      } vừa đăng một bài tập mới: "${title.trim()}"`;
+
+      const newNotification = {
+        content: notificationContent,
+        class_id: classId,
+        createdAt: serverTimestamp(),
+        isRead: false, // Rất quan trọng: Mặc định là chưa đọc
+        type: "NEW_TASK", // Phân loại thông báo
+      };
+
+      // 2. Thêm thông báo vào Firestore
+      await addDocument("notifications", newNotification);
 
       // 4. Reset state và đóng modal (SỬA: Dùng đúng tên hàm setState)
       setTitle("");

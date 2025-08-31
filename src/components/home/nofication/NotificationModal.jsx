@@ -18,7 +18,7 @@ import { addDocument } from "../../services/firebaseService";
 import { serverTimestamp } from "firebase/firestore";
 import { uploadFileToCloudinary } from "../../../config/CloudinaryConfig";
 
-function Notification({ open, handleClose, classId }) {
+function NotificationModal({ open, handleClose, classId }) {
   const [content, setContent] = useState(""); // State để lưu nội dung thông báo
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -133,4 +133,4 @@ function Notification({ open, handleClose, classId }) {
   );
 }
 
-export default Notification;
+export default NotificationModal;

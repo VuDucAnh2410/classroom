@@ -1,91 +1,170 @@
-import { useContext, useEffect, useState } from "react";
-import { Box, Typography, Paper, Divider, Button } from "@mui/material";
+// src/components/home/UpcomingTasks.jsx
+
+import React, { useContext, useEffect, useState, useMemo } from "react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Divider,
+  Button,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+} from "@mui/material";
+import { Link } from "react-router-dom";
+import { MdAssignment, MdDoneAll } from "react-icons/md";
+
+// Import các context cần thiết
 import { LoginContext } from "../contexts/AuthProvider";
 import { TasksContext } from "../contexts/TasksProvider";
+import { SubjectContext } from "../contexts/SubjectProvider";
+import { EnrollmentsContext } from "../contexts/EnrollmentsProvider";
 import { formatDeadline } from "./formatDeadline";
 
-function UpcomingTasks({ idClass, isTeacher }) {
+function UpcomingTasks({ idClass }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const tasks = useContext(TasksContext);
   const { auth } = useContext(LoginContext);
+  const allSubjects = useContext(SubjectContext);
+  const allEnrollments = useContext(EnrollmentsContext);
+
   const [taskTime, setTaskTime] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState(idClass || "all");
+
+  const userClasses = useMemo(() => {
+    if (!auth?.id || !allSubjects || !allEnrollments) return [];
+    const taughtClasses = allSubjects.filter((sub) => sub.user_id === auth.id);
+    const enrolledClassIds = allEnrollments
+      .filter((en) => en.user_id === auth.id)
+      .map((en) => en.class_id);
+    const enrolledClasses = allSubjects.filter((sub) =>
+      enrolledClassIds.includes(sub.id)
+    );
+    const combinedClasses = [...taughtClasses, ...enrolledClasses];
+    return combinedClasses.filter(
+      (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+    );
+  }, [auth, allSubjects, allEnrollments]);
+
   useEffect(() => {
     const now = new Date();
-    const allUpcomingTasksInClass = tasks.filter(
-      (e) => e.class_id === idClass && e.deadline && e.deadline.toDate() > now
+    const allUpcomingTasks = tasks.filter(
+      (e) => e.deadline && e.deadline.toDate() > now
     );
-    let finalTaskList;
-    if (isTeacher) {
-      // Nếu là giáo viên, danh sách cuối cùng là tất cả bài tập của lớp
-      finalTaskList = allUpcomingTasksInClass;
-    } else {
-      // Nếu là học sinh, lọc tiếp để lấy bài tập được giao cho mình
-      finalTaskList = allUpcomingTasksInClass.filter((e) =>
-        e.listUser?.includes(auth.id)
-      );
-    }
+    const tasksForSelectedClass =
+      selectedClassId === "all"
+        ? allUpcomingTasks
+        : allUpcomingTasks.filter((e) => e.class_id === selectedClassId);
+    const finalTaskList = tasksForSelectedClass.filter(
+      (e) =>
+        userClasses.some((c) => c.id === e.class_id && c.user_id === auth.id) ||
+        e.assigned_users?.includes(auth.id)
+    );
     finalTaskList.sort((a, b) => a.deadline.toDate() - b.deadline.toDate());
     setTaskTime(finalTaskList);
-  }, [idClass, auth, tasks, isTeacher]);
+  }, [selectedClassId, tasks, auth, userClasses, idClass]);
 
-  const displayedTasks = isExpanded ? taskTime : taskTime.slice(0, 2);
+  const displayedTasks = isExpanded ? taskTime : taskTime.slice(0, 3);
+
+  const getClassName = (classId) => {
+    const subject = allSubjects.find((s) => s.id === classId);
+    return subject?.name || "Lớp học không xác định";
+  };
+
   return (
-    <Paper sx={{ p: 2, height: "fit-content" }}>
-      <Typography variant="h6" gutterBottom>
-        Lời nhắc
+    <Paper sx={{ p: 2, height: "fit-content", backgroundColor: "#f8f9fa" }}>
+      <Typography
+        variant="h6"
+        gutterBottom
+        sx={{ fontWeight: "bold", color: "#3c4043" }}
+      >
+        Sắp đến hạn
       </Typography>
-      <Divider className="mb-2" />
-      {taskTime.length > 0 ? (
-        <>
-          {displayedTasks.map((e, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                p: 1,
-                mb: 1,
-                mt: 1,
-                backgroundColor: "white",
-                borderRadius: 2,
-                border: "1px solid #e0e0e0",
-                cursor: "pointer",
-                "&:hover": { boxShadow: 1, borderColor: "primary.main" },
-              }}
-            >
-              <Typography sx={{ ml: 2, flexGrow: 1, fontWeight: 400 }}>
-                {e?.name}
-              </Typography>
-              <Typography variant="body2" sx={{ color: "error.main", mr: 2 }}>
-                Hạn: {formatDeadline(e?.deadline.toDate())}
-              </Typography>
-            </Box>
-          ))}
 
-          {/* Chỉ hiển thị nút nếu tổng số task lớn hơn 2 */}
-          {taskTime.length > 2 && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "flex-end",
-                width: "100%",
-              }}
+      {!idClass && userClasses.length > 0 && (
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel>Lọc theo lớp</InputLabel>
+          <Select
+            value={selectedClassId}
+            label="Lọc theo lớp"
+            onChange={(e) => setSelectedClassId(e.target.value)}
+          >
+            <MenuItem value="all">
+              <em>Tất cả lớp học</em>
+            </MenuItem>
+            {userClasses.map((cls) => (
+              <MenuItem key={cls.id} value={cls.id}>
+                {cls.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      <Divider sx={{ mb: 1 }} />
+      {taskTime.length > 0 ? (
+        <Box>
+          {displayedTasks.map((task) => (
+            <Link
+              to={`/taskdetail/${task.id}`}
+              key={task.id}
+              style={{ textDecoration: "none" }}
             >
-              <Button
-                size="small"
-                sx={{ mt: 1 }}
-                onClick={() => setIsExpanded(!isExpanded)}
+              <Box
+                sx={{
+                  display: "flex",
+                  p: 1.5,
+                  my: 1,
+                  borderRadius: "8px",
+                  transition: "background-color 0.2s",
+                  "&:hover": { backgroundColor: "#e8f0fe" },
+                }}
               >
-                {isExpanded ? "Thu gọn" : "Xem thêm"}
+                <Box sx={{ mr: 1.5, color: "primary.main", mt: "3px" }}>
+                  <MdAssignment size={24} />
+                </Box>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography
+                    noWrap
+                    sx={{ fontWeight: 500, color: "#3c4043" }}
+                    title={task?.name}
+                  >
+                    {task?.name}
+                  </Typography>
+                  <Typography
+                    noWrap
+                    variant="body2"
+                    sx={{ color: "#5f6368" }}
+                    title={getClassName(task.class_id)}
+                  >
+                    {getClassName(task.class_id)}
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "error.main", ml: 1, whiteSpace: "nowrap" }}
+                >
+                  {task.deadline && formatDeadline(task.deadline.toDate())}
+                </Typography>
+              </Box>
+            </Link>
+          ))}
+          {taskTime.length > 3 && (
+            <Box
+              sx={{ display: "flex", justifyContent: "center", width: "100%" }}
+            >
+              <Button size="small" onClick={() => setIsExpanded(!isExpanded)}>
+                {isExpanded ? "Thu gọn" : "Xem tất cả"}
               </Button>
             </Box>
           )}
-        </>
+        </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Không có bài tập nào sắp đến hạn.
-        </Typography>
+        <Box sx={{ textAlign: "center", p: 3, color: "text.secondary" }}>
+          <MdDoneAll size={40} style={{ marginBottom: "8px" }} />
+          <Typography>Tuyệt vời, không có bài tập nào sắp đến hạn!</Typography>
+        </Box>
       )}
     </Paper>
   );
